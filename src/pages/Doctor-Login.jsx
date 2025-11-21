@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../api";
 
-export default function Login() {
+export default function DoctorLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -11,13 +10,23 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    const result = await login(email, password);
+    
+    try {
+      const res = await fetch("http://localhost:3000/api/doctor-auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
 
-    if (result.data && result.data.accessToken) {
-      document.cookie = `accessToken=${result.data.accessToken}; path=/; max-age=86400; Secure; SameSite=Strict`;
-      navigate("/appointment");
-    } else {
-      setError(result.message || "Login failed");
+      if (res.ok && data.data?.accessToken) {
+        document.cookie = `accessToken=${data.data.accessToken}; path=/; max-age=86400; Secure; SameSite=Strict`;
+        navigate("/doctor/appointments");
+      } else {
+        setError(data.message || "Login failed");
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
     }
   };
 
@@ -26,23 +35,23 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl flex flex-col md:flex-row overflow-hidden">
         {/* Left: Logo */}
         <div className="md:w-1/3 flex flex-col items-center justify-center p-6 bg-white">
-        <img
-          src="/telkomedikaLogo.png"
-          alt="TelkoMedika Logo"
-          className="w-28 mb-2"
-        />
+          <img
+            src="/telkomedikaLogo.png"
+            alt="TelkoMedika Logo"
+            className="w-28 mb-2"
+          />
         </div>
         {/* Right: Form */}
         <div className="md:w-2/3 p-8 relative">
           <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center mt-4 md:mt-0 drop-shadow">
-            Selamat Datang di <br /> MyTelkomedika
+            Selamat Datang <br /> Doctor Portal
           </h1>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-gray-700 mb-1 font-medium">Username</label>
+              <label className="block text-gray-700 mb-1 font-medium">Email</label>
               <input
                 type="email"
-                placeholder="Username"
+                placeholder="Email"
                 className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -59,16 +68,6 @@ export default function Login() {
                 onChange={e => setPassword(e.target.value)}
                 required
               />
-              <div className="text-xs text-gray-400 mt-1">
-                <a
-                  href="https://satu.telkomuniversity.ac.id/auth/login"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  Lupa Password
-                </a>
-              </div>
             </div>
             {error && (
               <div className="text-red-600 text-center mt-2">{error}</div>
@@ -82,7 +81,7 @@ export default function Login() {
           </form>
           <div className="text-center mt-6 text-sm">
             Belum Punya akun?{" "}
-            <a href="/register" className="text-blue-600 hover:underline">
+            <a href="/doctor/register" className="text-blue-600 hover:underline">
               Buat Akun
             </a>
           </div>
