@@ -1,90 +1,74 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../api";
+import StudentLogin from "./logins/StudentLogin";
+import DoctorLogin from "./logins/DoctorLogin";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    const result = await login(email, password);
-
-    if (result.data && result.data.accessToken) {
-      document.cookie = `accessToken=${result.data.accessToken}; path=/; max-age=86400; Secure; SameSite=Strict`;
-      navigate("/appointment");
-    } else {
-      setError(result.message || "Login failed");
-    }
-  };
-
+  const [isDoctor, setIsDoctor] = React.useState(false);
+  
   return (
-    <div className="min-h-screen bg-[#ed1c24] flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl flex flex-col md:flex-row overflow-hidden">
-        {/* Left: Logo */}
-        <div className="md:w-1/3 flex flex-col items-center justify-center p-6 bg-white">
-        <img
-          src="/telkomedikaLogo.png"
-          alt="TelkoMedika Logo"
-          className="w-28 mb-2"
-        />
-        </div>
-        {/* Right: Form */}
-        <div className="md:w-2/3 p-8 relative">
-          <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center mt-4 md:mt-0 drop-shadow">
-            Selamat Datang di <br /> MyTelkomedika
-          </h1>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-gray-700 mb-1 font-medium">Username</label>
-              <input
-                type="email"
-                placeholder="Username"
-                className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-gray-700 mb-1 font-medium">Password</label>
-              <input
-                type="password"
-                placeholder="Password"
-                className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-              />
-              <div className="text-xs text-gray-400 mt-1">
-                <a
-                  href="https://satu.telkomuniversity.ac.id/auth/login"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  Lupa Password
-                </a>
+    <div
+      className="min-h-screen flex flex-col"
+      style={{
+        backgroundImage: "url('/background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="bg-[#a71930] px-8 py-4 flex justify-end">
+        <div className="text-white text-2xl">🌐</div>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center p-4 relative">
+        <div className="absolute inset-0 bg-black/30"></div>
+
+        <div className="relative z-10 w-full max-w-xl">
+          <div className="bg-white rounded-3xl shadow-2xl px-12 py-10">
+            <div className="flex items-center gap-6 mb-8">
+              <div className="flex-shrink-0">
+                <img
+                  src="/telkomedikaLogo.png"
+                  alt="TelkoMedika Logo"
+                  className="w-28"
+                />
+              </div>
+
+              <div className="flex-1 text-center">
+                <h1 className="text-black text-2xl font-bold">
+                  Welcome to <br /> MyTelkomedika
+                </h1>
               </div>
             </div>
-            {error && (
-              <div className="text-red-600 text-center mt-2">{error}</div>
-            )}
-            <button
-              type="submit"
-              className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold shadow hover:bg-green-600 transition"
-            >
-              Masuk
-            </button>
-          </form>
-          <div className="text-center mt-6 text-sm">
-            Belum Punya akun?{" "}
-            <a href="/register" className="text-blue-600 hover:underline">
-              Buat Akun
-            </a>
+
+            <div className="flex gap-4 mb-8">
+              <button
+                type="button"
+                onClick={() => setIsDoctor(false)}
+                className={`flex-1 py-3 rounded-lg font-semibold transition text-sm ${
+                  !isDoctor
+                    ? "bg-[#a71930] text-white"
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                }`}
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDoctor(true)}
+                className={`flex-1 py-3 rounded-lg font-semibold transition text-sm ${
+                  isDoctor
+                    ? "bg-[#a71930] text-white"
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                }`}
+              >
+                Doctor
+              </button>
+            </div>
+
+            <div className="px-2">
+              {isDoctor ? <DoctorLogin /> : <StudentLogin />}
+            </div>
           </div>
         </div>
       </div>
