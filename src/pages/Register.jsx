@@ -1,137 +1,120 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-
-const API_URL = "http://localhost:3000/api/student-auth/register";
+import useRegisterForm from "../hooks/useRegisterForm";
+import { ROUTES } from "../utils/constants";
+import InputField from "../components/InputField";
 
 export default function Register() {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    password_confirmation: "",
-    phone: "",
-  });
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const navigate = useNavigate();
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setSuccess("Registrasi berhasil! Silakan login.");
-      setTimeout(() => navigate("/"), 1500);
-    } else {
-      setError(data.message || "Registrasi gagal");
-    }
-  };
+  const { form, error, success, loading, handleChange, handleSubmit } = useRegisterForm();
 
   return (
-    <div className="min-h-screen bg-[#ed1c24] flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg w-full max-w-2xl flex flex-col md:flex-row overflow-hidden">
-        {/* Left: Logo */}
-        <div className="md:w-1/3 flex flex-col items-center justify-center p-6 bg-white">
-          <img
-            src="/telkomedikaLogo.png"
-            alt="TelkoMedika Logo"
-            className="w-28 mb-2"
-          />
-        </div>
-        {/* Right: Form */}
-        <div className="md:w-2/3 p-8 relative">
-          <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center mt-4 md:mt-0 drop-shadow">
-            Daftar Akun MyTelkomedika
-          </h1>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-gray-700 mb-1 font-medium">Nama Lengkap</label>
-              <input
-                type="text"
-                name="name"
-                placeholder="Nama Lengkap"
-                className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
-                value={form.name}
-                onChange={handleChange}
-                required
-              />
+    <div
+      className="min-h-screen flex flex-col"
+      style={{
+        backgroundImage: "url('/background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="bg-[#a71930] px-8 py-4 flex justify-end">
+        <div className="text-white text-2xl">🌐</div>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center p-4 relative">
+        <div className="absolute inset-0 bg-black/30"></div>
+
+        <div className="relative z-10 w-full max-w-xl">
+          <div className="bg-white rounded-3xl shadow-2xl px-12 py-10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-6 mb-8">
+              <div className="flex-shrink-0">
+                <img
+                  src="/telkomedikaLogo.png"
+                  alt="TelkoMedika Logo"
+                  className="w-28"
+                />
+              </div>
+
+              <div className="flex-1 text-center">
+                <h1 className="text-black text-2xl font-bold">
+                  Registrasi <br /> Akun
+                </h1>
+              </div>
             </div>
-            <div>
-              <label className="block text-gray-700 mb-1 font-medium">Email</label>
-              <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
-                value={form.email}
-                onChange={handleChange}
-                required
-              />
+
+            <div className="px-2">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <InputField
+                  type="text"
+                  placeholder="Nama Lengkap"
+                  label="Nama Lengkap"
+                  value={form.name}
+                  onChange={handleChange}
+                  name="name"
+                  required
+                />
+                <InputField
+                  type="email"
+                  placeholder="Email"
+                  label="Email"
+                  value={form.email}
+                  onChange={handleChange}
+                  name="email"
+                  required
+                />
+                <InputField
+                  type="password"
+                  placeholder="Password"
+                  label="Password"
+                  value={form.password}
+                  onChange={handleChange}
+                  name="password"
+                  required
+                />
+                <InputField
+                  type="password"
+                  placeholder="Konfirmasi Password"
+                  label="Konfirmasi Password"
+                  value={form.password_confirmation}
+                  onChange={handleChange}
+                  name="password_confirmation"
+                  required
+                />
+                <InputField
+                  type="text"
+                  placeholder="No. HP"
+                  label="No. HP"
+                  value={form.phone}
+                  onChange={handleChange}
+                  name="phone"
+                  required
+                />
+
+                {error && (
+                  <div className="bg-red-100 border-l-4 border-red-600 text-red-700 px-4 py-3 rounded text-sm">
+                    {error}
+                  </div>
+                )}
+                {success && (
+                  <div className="bg-green-100 border-l-4 border-green-600 text-green-700 px-4 py-3 rounded text-sm">
+                    {success}
+                  </div>
+                )}
+
+                <div className="text-center text-sm mb-4">
+                  Sudah punya akun?{" "}
+                  <a href={ROUTES.LOGIN} className="text-blue-600 hover:underline font-semibold">
+                    Login
+                  </a>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#a71930] text-white py-3 rounded-xl font-bold text-lg hover:bg-[#8b1428] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Loading..." : "Daftar"}
+                </button>
+              </form>
             </div>
-            <div>
-              <label className="block text-gray-700 mb-1 font-medium">Password</label>
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
-                value={form.password}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-gray-700 mb-1 font-medium">Konfirmasi Password</label>
-              <input
-                type="password"
-                name="password_confirmation"
-                placeholder="Konfirmasi Password"
-                className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
-                value={form.password_confirmation}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-gray-700 mb-1 font-medium">No. HP</label>
-              <input
-                type="text"
-                name="phone"
-                placeholder="No. HP"
-                className="w-full px-4 py-3 border rounded-lg bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ed1c24] shadow"
-                value={form.phone}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            {error && (
-              <div className="text-red-600 text-center mt-2">{error}</div>
-            )}
-            {success && (
-              <div className="text-green-600 text-center mt-2">{success}</div>
-            )}
-            <button
-              type="submit"
-              className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold shadow hover:bg-green-600 transition"
-            >
-              Daftar
-            </button>
-          </form>
-          <div className="text-center mt-6 text-sm">
-            Sudah punya akun?{" "}
-            <a href="/" className="text-blue-600 hover:underline">
-              Login
-            </a>
           </div>
         </div>
       </div>
