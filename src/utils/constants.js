@@ -23,9 +23,9 @@ export const AUTH_ENDPOINTS = {
 };
 
 export const API_ENDPOINTS = {
-  APPOINTMENTS: "/appointment",
-  STUDENT_APPOINTMENTS: "/appointment/student",
-  DOCTOR_APPOINTMENTS: "/appointment/doctor",
+  APPOINTMENTS: "/appointments",
+  STUDENT_APPOINTMENTS: "/appointments/student",
+  DOCTOR_APPOINTMENTS: "/appointments/doctor",
   FORUM: "/forum",
 };
 
