@@ -447,13 +447,13 @@ export default function StudentAppointment() {
           </div>
 
           <nav className="flex items-center gap-8 font-medium">
-            <a href="/" className="hover:text-gray-200 transition-colors">
+            <a href="/beranda-student" className="hover:text-gray-200 transition-colors">
               {d.navHome}
             </a>
-            <a href="#" className="hover:text-gray-200 transition-colors">
+            <a href="/artikel/student" className="hover:text-gray-200 transition-colors"> {/* PERUBAHAN DI SINI */}
               {d.navArticles}
             </a>
-            <a href="#" className="hover:text-gray-200 transition-colors">
+            <a href="forum" className="hover:text-gray-200 transition-colors">
               {d.navForum}
             </a>
             <a href="/student-appointments" className="text-yellow-300 font-semibold underline">

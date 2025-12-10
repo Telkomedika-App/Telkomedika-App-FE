@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { fetchAPI } from "../../api/client";
 import { LOCAL_STORAGE_KEYS, API_ENDPOINTS } from "../../utils/constants";
 
@@ -88,7 +88,6 @@ export default function DoctorAppointment() {
 
       if (diff <= 0) {
         clearInterval(interval);
-
         const updated = { ...selected, status: "COMPLETED" };
         setSelected(updated);
         return;
@@ -108,16 +107,12 @@ export default function DoctorAppointment() {
     loadAppointments();
   }, []);
 
-  // Approve appointment
   const approve = async (id) => {
     try {
       const res = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}/confirm`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (res.success) {
         await loadAppointments();
         alert(lang === "id" ? "Appointment disetujui!" : "Appointment approved!");
@@ -127,16 +122,13 @@ export default function DoctorAppointment() {
     }
   };
 
-  // Cancel appointment
   const cancelAppointment = async (id) => {
     if (!window.confirm(t.cancelBtn)) return;
 
     try {
       const res = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}/cancel`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.success) {
@@ -148,7 +140,6 @@ export default function DoctorAppointment() {
     }
   };
 
-  // Change status (doctor)
   const changeStatus = async (id, status) => {
     try {
       const res = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}/status`, {
@@ -157,7 +148,7 @@ export default function DoctorAppointment() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: status.toLowerCase() }),
+        body: JSON.stringify({ status: status.toUpperCase() }),
       });
 
       if (!res || res.success !== true) {
@@ -165,7 +156,6 @@ export default function DoctorAppointment() {
         return;
       }
 
-      // Reload updated appointment
       const fresh = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -190,14 +180,9 @@ export default function DoctorAppointment() {
   };
 
   useEffect(() => {
-    const handleClickOutside = () => {
-      setLangPanelVisible(false);
-    };
-
+    const handleClickOutside = () => setLangPanelVisible(false);
     document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   return (
@@ -211,10 +196,10 @@ export default function DoctorAppointment() {
           </div>
 
           <nav className="flex items-center gap-8 font-medium">
-            <a href="/" className="hover:text-gray-200 transition-colors">{t.navHome}</a>
-            <a href="#" className="hover:text-gray-200 transition-colors">{t.navArticles}</a>
-            <a href="#" className="hover:text-gray-200 transition-colors">{t.navForum}</a>
-            <a href="/doctor-appointments" className="text-yellow-300 font-semibold underline">{t.navReservation}</a>
+            <Link to="/beranda-doctor" className="hover:text-gray-200 transition-colors">{t.navHome}</Link>
+            <Link to="/artikel/doctor" className="hover:text-gray-200 transition-colors">{t.navArticles}</Link>
+            <Link to="/doctor/forum" className="hover:text-gray-200 transition-colors">{t.navForum}</Link>
+            <Link to="/doctor-appointments" className="text-yellow-300 font-semibold underline">{t.navReservation}</Link>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -241,9 +226,7 @@ export default function DoctorAppointment() {
               )}
             </div>
 
-            <button onClick={() => navigate("/login")} className="bg-white text-[#7A0C0C] px-4 py-2 rounded-xl font-semibold hover:bg-gray-100 transition-colors">
-              {t.logout}
-            </button>
+            <button onClick={() => navigate("/login")} className="bg-white text-[#7A0C0C] px-4 py-2 rounded-xl font-semibold hover:bg-gray-100 transition-colors">{t.logout}</button>
           </div>
         </div>
       </header>
@@ -251,43 +234,28 @@ export default function DoctorAppointment() {
       <div className="relative z-10 max-w-5xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6 text-white text-center">{t.title}</h1>
 
+        {/* Appointment List */}
         <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">{t.appointmentList}</h2>
-
           <div className="space-y-4">
             {appointments.length > 0 ? (
               appointments.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 border-2 border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 hover:border-[#7A0C0C] transition-all"
-                  onClick={() => { setSelected(item); setSelectedStatus(item.status); }}
-                >
+                <div key={item.id} className="p-4 border-2 border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 hover:border-[#7A0C0C] transition-all"
+                  onClick={() => { setSelected(item); setSelectedStatus(item.status); }}>
                   <p className="font-bold text-lg text-gray-800">{item.fullName}</p>
                   <p className="text-sm text-gray-600 mt-1">
-                    {item.service === "dokter-umum" 
-                      ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service")
-                      : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
+                    {item.service === "dokter-umum" ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service") : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    {new Date(item.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US")} • {item.time}
-                  </p>
-
+                  <p className="text-sm text-gray-600">{new Date(item.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US")} • {item.time}</p>
                   <span className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${
-                    item.status === "PENDING"
-                      ? "bg-yellow-200 text-yellow-900"
-                      : item.status === "CONFIRMED"
-                      ? "bg-blue-200 text-blue-900"
-                      : item.status === "CANCELLED"
-                      ? "bg-red-200 text-red-900"
-                      : "bg-green-200 text-green-900"
-                  }`}>
-                    {item.status === "PENDING"
-                      ? (lang === "id" ? "MENUNGGU" : "PENDING")
-                      : item.status === "CONFIRMED"
-                      ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
-                      : item.status === "CANCELLED"
-                      ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
-                      : (lang === "id" ? "SELESAI" : "COMPLETED")}
+                    item.status === "PENDING" ? "bg-yellow-200 text-yellow-900"
+                    : item.status === "CONFIRMED" ? "bg-blue-200 text-blue-900"
+                    : item.status === "CANCELLED" ? "bg-red-200 text-red-900"
+                    : "bg-green-200 text-green-900"}`}>
+                    {item.status === "PENDING" ? (lang === "id" ? "MENUNGGU" : "PENDING")
+                    : item.status === "CONFIRMED" ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
+                    : item.status === "CANCELLED" ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
+                    : (lang === "id" ? "SELESAI" : "COMPLETED")}
                   </span>
                 </div>
               ))
@@ -297,6 +265,7 @@ export default function DoctorAppointment() {
           </div>
         </div>
 
+        {/* Appointment Detail */}
         {selected && (
           <div className="bg-white rounded-2xl shadow-2xl p-6">
             <h2 className="text-xl font-bold mb-4">{t.appointmentDetail}</h2>
@@ -312,20 +281,14 @@ export default function DoctorAppointment() {
               </div>
               <div>
                 <p className="font-semibold text-gray-700">{t.labelService}</p>
-                <p className="text-gray-900">{selected.service === "dokter-umum" 
-                    ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service")
-                    : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
+                <p className="text-gray-900">
+                  {selected.service === "dokter-umum" ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service") : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
                 </p>
               </div>
               <div>
                 <p className="font-semibold text-gray-700">{t.labelDate}</p>
                 <p className="text-gray-900">
-                  {new Date(selected.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  {new Date(selected.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
               <div>
@@ -335,21 +298,14 @@ export default function DoctorAppointment() {
               <div>
                 <p className="font-semibold text-gray-700">{lang === "id" ? "Status" : "Status"}</p>
                 <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-                    selected.status === "PENDING"
-                      ? "bg-yellow-200 text-yellow-900"
-                      : selected.status === "CONFIRMED"
-                      ? "bg-blue-200 text-blue-900"
-                      : selected.status === "CANCELLED"
-                      ? "bg-red-200 text-red-900"
-                      : "bg-green-200 text-green-900"
-                  }`}>
-                  {selected.status === "PENDING"
-                    ? (lang === "id" ? "MENUNGGU" : "PENDING")
-                    : selected.status === "CONFIRMED"
-                    ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
-                    : selected.status === "CANCELLED"
-                    ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
-                    : (lang === "id" ? "SELESAI" : "COMPLETED")}
+                    selected.status === "PENDING" ? "bg-yellow-200 text-yellow-900"
+                    : selected.status === "CONFIRMED" ? "bg-blue-200 text-blue-900"
+                    : selected.status === "CANCELLED" ? "bg-red-200 text-red-900"
+                    : "bg-green-200 text-green-900"}`}>
+                  {selected.status === "PENDING" ? (lang === "id" ? "MENUNGGU" : "PENDING")
+                  : selected.status === "CONFIRMED" ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
+                  : selected.status === "CANCELLED" ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
+                  : (lang === "id" ? "SELESAI" : "COMPLETED")}
                 </span>
               </div>
             </div>
@@ -364,47 +320,25 @@ export default function DoctorAppointment() {
             <div className="flex gap-3 mt-6 flex-wrap">
               {selected.status === "PENDING" && (
                 <>
-                  <button
-                    onClick={() => approve(selected.id)}
-                    className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors"
-                  >
-                    {t.approve}
-                  </button>
-
-                  <button
-                    onClick={() => cancelAppointment(selected.id)}
-                    className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
-                  >
-                    {t.cancel}
-                  </button>
+                  <button onClick={() => approve(selected.id)} className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors">{t.approve}</button>
+                  <button onClick={() => cancelAppointment(selected.id)} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors">{t.cancel}</button>
                 </>
               )}
 
               {(selected.status === "CONFIRMED" || selected.status === "COMPLETED") && (
-                <button
-                  onClick={() => cancelAppointment(selected.id)}
-                  className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
-                >
-                  {t.cancelBtn}
-                </button>
+                <button onClick={() => cancelAppointment(selected.id)} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors">{t.cancelBtn}</button>
               )}
 
               <div className="flex-1">
-                <select
-                  className="w-full px-3 py-2 border rounded-xl"
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                >
+                <select className="w-full px-3 py-2 border rounded-xl" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
                   <option value="PENDING">PENDING</option>
                   <option value="CONFIRMED">CONFIRMED</option>
                   <option value="CANCELLED">CANCELLED</option>
                   <option value="COMPLETED">COMPLETED</option>
                 </select>
               </div>
-              <button
-                onClick={() => changeStatus(selected.id, selectedStatus)}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors"
-              >
+
+              <button onClick={() => changeStatus(selected.id, selectedStatus)} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">
                 {lang === "id" ? "Ubah Status" : "Update Status"}
               </button>
             </div>

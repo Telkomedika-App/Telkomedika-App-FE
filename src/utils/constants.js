@@ -13,6 +13,8 @@ export const ROUTES = {
   STUDENT_APPOINTMENTS: "/student-appointments",
   DOCTOR_APPOINTMENTS: "/doctor-appointments",
   FORUM: "/forum",
+  STUDENT_ARTIKEL: "/artikel/student",
+  DOCTOR_ARTIKEL: "/artikel/doctor",
 };
 
 export const AUTH_ENDPOINTS = {
@@ -27,6 +29,10 @@ export const API_ENDPOINTS = {
   STUDENT_APPOINTMENTS: "/appointments/student",
   DOCTOR_APPOINTMENTS: "/appointments/doctor",
   FORUM: "/forum",
+  ARTIKEL: "/artikel",
+  STUDENT_ARTIKEL: "/artikel/student/articles",
+  DOCTOR_MY_ARTIKEL: "/artikel/doctor/my-articles",
+  DOCTOR_ARTIKEL: "/artikel/doctor/articles",
 };
 
 export const APPOINTMENT_STATUS = {
