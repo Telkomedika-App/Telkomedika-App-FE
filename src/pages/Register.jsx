@@ -1,6 +1,8 @@
 import useRegisterForm from "../hooks/useRegisterForm";
 import { ROUTES } from "../utils/constants";
-import InputField from "../components/InputField";
+import InputField from "../components/Field";
+import Button from "../components/Button";
+import Header from "../components/Header";
 
 export default function Register() {
   const { form, error, success, loading, handleChange, handleSubmit } = useRegisterForm();
@@ -15,9 +17,7 @@ export default function Register() {
         backgroundAttachment: "fixed",
       }}
     >
-      <div className="bg-[#a71930] px-8 py-4 flex justify-end">
-        <div className="text-white text-2xl">🌐</div>
-      </div>
+      <Header />
 
       <div className="flex-1 flex items-center justify-center p-4 relative">
         <div className="absolute inset-0 bg-black/30"></div>
@@ -106,13 +106,15 @@ export default function Register() {
                   </a>
                 </div>
 
-                <button
+                <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#a71930] text-white py-3 rounded-xl font-bold text-lg hover:bg-[#8b1428] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
                 >
                   {loading ? "Loading..." : "Daftar"}
-                </button>
+                </Button>
               </form>
             </div>
           </div>

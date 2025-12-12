@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import Header from "../components/Header";
 import StudentLogin from "./logins/StudentLogin";
 import DoctorLogin from "./logins/DoctorLogin";
 
@@ -16,9 +16,7 @@ export default function Login() {
         backgroundAttachment: "fixed",
       }}
     >
-      <div className="bg-[#a71930] px-8 py-4 flex justify-end">
-        <div className="text-white text-2xl">🌐</div>
-      </div>
+      <Header />
 
       <div className="flex-1 flex items-center justify-center p-4 relative">
         <div className="absolute inset-0 bg-black/30"></div>

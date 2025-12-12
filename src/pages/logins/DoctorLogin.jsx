@@ -1,4 +1,5 @@
-import InputField from "../../components/InputField";
+import InputField from "../../components/Field";
+import Button from "../../components/Button";
 import useDoctorLogin from "../../hooks/useDoctorLogin";
 
 export default function DoctorLogin() {
@@ -29,13 +30,15 @@ export default function DoctorLogin() {
           {error}
         </div>
       )}
-      <button
+      <Button
         type="submit"
         disabled={loading}
-        className="w-full bg-green-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-600 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+        variant="success"
+        size="lg"
+        fullWidth
       >
         {loading ? "Loading..." : "Masuk"}
-      </button>
+      </Button>
     </form>
   );
 }

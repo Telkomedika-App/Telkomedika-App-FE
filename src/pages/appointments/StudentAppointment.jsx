@@ -1,432 +1,28 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { API_BASE_URL, API_ENDPOINTS } from "../../utils/constants";
+import useStudentAppointment from "../../hooks/useStudentAppointment";
 
 export default function StudentAppointment() {
   const navigate = useNavigate();
-  const token =
-    localStorage.getItem("authToken") || localStorage.getItem("token");
+  const {
+    lang,
+    langPanelVisible,
+    toggleLangPanel,
+    changeLanguage,
+    form,
+    setForm,
+    activeReservation,
+    countdown,
+    translations,
+    handleSubmit,
+    cancelReservation,
+    clearLocalActiveReservation,
+    serviceLabel,
+    getStatusLabel,
+    isActiveReservation,
+  } = useStudentAppointment();
 
-  const [lang, setLang] = useState("id");
-  const [langPanelVisible, setLangPanelVisible] = useState(false);
-
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    date: "",
-    time: "",
-    service: "dokter-umum",
-  });
-
-  const [activeReservation, setActiveReservation] = useState(null);
-
-  const [countdown, setCountdown] = useState("");
-
-  const t = {
-    id: {
-      title: "Reservasi",
-      subtitle: "Silakan lengkapi data reservasi Anda",
-      labelName: "Nama Lengkap",
-      placeholderName: "Masukkan nama lengkap",
-      labelPhone: "No. HP",
-      placeholderPhone: "Contoh: 081234567890",
-      labelDate: "Tanggal",
-      labelTime: "Waktu",
-      labelService: "Layanan",
-      serviceGeneral: "Layanan Dokter Umum",
-      serviceDental: "Layanan Dokter Gigi",
-      submit: "Kirim Reservasi",
-      logout: "Keluar",
-      success: "Reservasi berhasil dikirim dan menunggu persetujuan admin",
-      navHome: "Beranda",
-      navArticles: "Artikel Kesehatan",
-      navForum: "Forum Diskusi",
-      navReservation: "Reservasi",
-      errFill: "Harap lengkapi semua data",
-      statusPending: "Menunggu Persetujuan Admin",
-      statusConfirmed: "Reservasi Dikonfirmasi", 
-      statusCompleted: "Reservasi Selesai",
-      statusCancelled: "Reservasi Dibatalkan",
-      countdownLabel: "Menuju waktu reservasi:",
-      cancelBtn: "Batalkan Reservasi",
-      cancelConfirm:
-        "Apakah Anda yakin ingin membatalkan reservasi? Permintaan pembatalan akan dikirim ke admin.",
-      cancelSuccess: "Permintaan pembatalan telah dikirim ke admin",
-      noReservation: "Tidak ada reservasi aktif",
-      alreadyReservation: "Anda sudah memiliki reservasi aktif",
-      appointmentCompleted: "Appointment sudah selesai",
-      appointmentCancelled: "Appointment sudah dibatalkan",
-    },
-    en: {
-      title: "Reservation",
-      subtitle: "Please complete your reservation data",
-      labelName: "Full Name",
-      placeholderName: "Enter your full name",
-      labelPhone: "Phone Number",
-      placeholderPhone: "Example: 081234567890",
-      labelDate: "Date",
-      labelTime: "Time",
-      labelService: "Service",
-      serviceGeneral: "General Practitioner Service",
-      serviceDental: "Dental Service",
-      submit: "Submit Reservation",
-      logout: "Logout",
-      success: "Reservation submitted successfully and waiting for admin approval",
-      navHome: "Home",
-      navArticles: "Health Articles",
-      navForum: "Discussion Forum",
-      navReservation: "Reservation",
-      errFill: "Please complete all fields",
-      statusPending: "Waiting for Admin Approval",
-      statusConfirmed: "Reservation Confirmed", 
-      statusCompleted: "Reservation Completed",
-      statusCancelled: "Reservation Cancelled",
-      countdownLabel: "Time until reservation:",
-      cancelBtn: "Cancel Reservation",
-      cancelConfirm:
-        "Are you sure you want to cancel the reservation? Cancellation request will be sent to admin.",
-      cancelSuccess: "Cancellation request has been sent to admin",
-      noReservation: "No active reservation",
-      alreadyReservation: "You already have an active reservation",
-      appointmentCompleted: "Appointment completed",
-      appointmentCancelled: "Appointment cancelled",
-    },
-  };
-
-  useEffect(() => {
-    document.documentElement.setAttribute("lang", lang);
-  }, [lang]);
-
-  // Utility: safe parse and select an "active" reservation from various BE shapes
-  function pickActiveReservationFromResponse(data) {
-    if (!data) return null;
-
-    if (!Array.isArray(data) && typeof data === "object") {
-      const status = String(data.status || "").toUpperCase();
-      // Hanya return jika status aktif
-      if (["PENDING", "CONFIRMED"].includes(status)) {
-        return data;
-      }
-      return null;
-    }
-
-    if (Array.isArray(data)) {
-      const active = data
-        .filter((a) => a && a.status)
-        .sort((a, b) => {
-          const ta = new Date(a.date).getTime() || 0;
-          const tb = new Date(b.date).getTime() || 0;
-          return tb - ta;
-        })
-        .find((a) => {
-          const status = String(a.status).toUpperCase();
-          return ["PENDING", "CONFIRMED"].includes(status);
-        });
-      
-      return active || null;
-    }
-
-    return null;
-  }
-
-  function clearLocalActiveReservation() {
-    localStorage.removeItem("activeReservation");
-    setActiveReservation(null);
-  }
-
-  const fetchReservationData = async () => {
-    if (!token) return;
-
-    try {
-      const url = `${API_BASE_URL}${API_ENDPOINTS.APPOINTMENTS}/my`;
-      const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 7000,
-      });
-
-      const maybeData = res?.data?.data ?? res?.data;
-
-      const picked = pickActiveReservationFromResponse(maybeData);
-
-      if (!picked) {
-        clearLocalActiveReservation();
-        return;
-      }
-
-      let dateOnly = picked.date;
-      if (typeof dateOnly === "string" && dateOnly.includes("T")) {
-        dateOnly = dateOnly.split("T")[0];
-      } else if (picked.date instanceof Date) {
-        dateOnly = picked.date.toISOString().split("T")[0];
-      }
-
-      const normalized = { ...picked, date: dateOnly };
-      const statusUpper = String(normalized.status || "").toUpperCase();
-
-      // Jika status adalah CANCELLED atau COMPLETED, clear dari localStorage
-      if (["CANCELLED", "COMPLETED"].includes(statusUpper)) {
-        clearLocalActiveReservation();
-        return;
-      }
-
-      localStorage.setItem("activeReservation", JSON.stringify(normalized));
-      setActiveReservation(normalized);
-    } catch (err) {
-      console.error("Error fetching reservation:", err);
-      try {
-        const saved = JSON.parse(localStorage.getItem("activeReservation") || "null");
-        if (saved) {
-          const savedStatus = String(saved.status || "").toUpperCase();
-          if (!["CANCELLED", "COMPLETED"].includes(savedStatus)) {
-            setActiveReservation(saved);
-          }
-        }
-      } catch (e) {
-        setActiveReservation(null);
-      }
-    }
-  };
-
-  // Load active reservation dari backend dan localStorage
-  useEffect(() => {
-    fetchReservationData();
-
-    // set min date for date input
-    const today = new Date().toISOString().split("T")[0];
-    const dateInput = document.getElementById("input-date");
-    if (dateInput) dateInput.min = today;
-  }, [token]);
-
-  useEffect(() => {
-    if (!activeReservation) return;
-
-    const interval = setInterval(() => {
-      const statusUpper = String(activeReservation.status || "").toUpperCase();
-      if (statusUpper === "CONFIRMED") {
-        // Cek apakah waktu appointment sudah lewat
-        const now = new Date();
-        const appointmentDate = activeReservation.date;
-        const appointmentTime = activeReservation.time;
-        
-        if (appointmentDate && appointmentTime) {
-          const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
-          if (now > appointmentDateTime) {
-            fetchReservationData();
-          }
-        }
-      }
-    }, 30000); 
-
-    return () => clearInterval(interval);
-  }, [activeReservation]);
-
-  useEffect(() => {
-    if (!activeReservation) {
-      setCountdown("");
-      return;
-    }
-
-    const statusUpper = String(activeReservation.status || "").toUpperCase();
-    if (statusUpper !== "CONFIRMED") {
-      setCountdown("");
-      return;
-    }
-    const dateStr = activeReservation.date;
-    const timeStr = activeReservation.time;
-    
-    if (!dateStr || !timeStr) {
-      setCountdown("");
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      
-      // Format date properly
-      let targetDateStr = dateStr;
-      if (targetDateStr.includes("T")) {
-        targetDateStr = targetDateStr.split("T")[0];
-      }
-      
-      const target = new Date(`${targetDateStr}T${timeStr}`);
-      const diff = target.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        clearInterval(interval);
-        setCountdown("00:00:00");
-        fetchReservationData(); // Refresh data dari server
-        return;
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setCountdown(
-        `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-      );
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [activeReservation]);
-
-  // Submit reservation
-  const handleSubmit = async () => {
-    if (!form.name || !form.phone || !form.date || !form.time) {
-      alert(t[lang].errFill);
-      return;
-    }
-
-    // Cek apakah sudah ada appointment aktif
-    if (activeReservation) {
-      const statusUpper = String(activeReservation.status || "").toUpperCase();
-      if (["PENDING", "CONFIRMED"].includes(statusUpper)) {
-        alert(t[lang].alreadyReservation);
-        return;
-      }
-    }
-
-    try {
-      // Mapping service ke format backend
-      let serviceCode;
-      if (form.service === "dokter-umum") {
-        serviceCode = "general";
-      } else if (form.service === "dokter-gigi") {
-        serviceCode = "dental";
-      } else {
-        serviceCode = "general";
-      }
-
-      const res = await axios.post(
-        `${API_BASE_URL}${API_ENDPOINTS.APPOINTMENTS}`,
-        {
-          fullName: form.name,
-          phone: form.phone,
-          date: form.date,
-          time: form.time,
-          service: serviceCode,
-        },
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`, 
-            "Content-Type": "application/json" 
-          },
-        }
-      );
-
-      if (!res?.data?.success) {
-        alert(res?.data?.message || "Gagal membuat reservasi.");
-        return;
-      }
-
-      const newData = res.data.data || {};
-      const dateOnly = typeof newData.date === "string" && newData.date.includes("T")
-        ? newData.date.split("T")[0]
-        : newData.date || form.date;
-
-      const newReservation = { ...newData, date: dateOnly };
-
-      // Simpan ke localStorage
-      localStorage.setItem("activeReservation", JSON.stringify(newReservation));
-      setActiveReservation(newReservation);
-
-      // Reset form
-      setForm({
-        name: "",
-        phone: "",
-        date: "",
-        time: "",
-        service: "dokter-umum",
-      });
-
-      alert(t[lang].success);
-    } catch (err) {
-      console.error("Create appointment failed:", err?.response?.data || err.message);
-      alert(err?.response?.data?.message || "Gagal membuat reservasi.");
-    }
-  };
-
-  // Cancel reservation
-  const cancelReservation = async () => {
-    if (!activeReservation) return;
-    
-    if (!window.confirm(t[lang].cancelConfirm)) return;
-
-    const id = activeReservation.id || activeReservation._id || null;
-
-    if (id) {
-      try {
-        const url = `${API_BASE_URL}${API_ENDPOINTS.APPOINTMENTS}/${id}/cancel`;
-        const res = await axios.post(
-          url, 
-          {}, 
-          { 
-            headers: { Authorization: `Bearer ${token}` } 
-          }
-        );
-
-        if (res?.data?.success) {
-          // Update local state ke CANCELLED
-          const updated = { ...activeReservation, status: "CANCELLED" };
-          localStorage.setItem("activeReservation", JSON.stringify(updated));
-          setActiveReservation(updated);
-          alert(t[lang].cancelSuccess);
-        } else {
-          alert(res?.data?.message || "Gagal membatalkan reservasi.");
-        }
-      } catch (err) {
-        console.error("Cancel failed:", err);
-        alert(err?.response?.data?.message || "Gagal membatalkan reservasi.");
-      }
-    } else {
-      alert("ID appointment tidak ditemukan.");
-    }
-  };
-
-  const toggleLangPanel = (e) => {
-    e.stopPropagation();
-    setLangPanelVisible(!langPanelVisible);
-  };
-
-  const changeLanguage = (newLang) => {
-    setLang(newLang);
-    setLangPanelVisible(false);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = () => setLangPanelVisible(false);
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  const d = t[lang];
-
-  const serviceLabel = (svc) => {
-    const safeSvc = String(svc || "").toLowerCase();
-    if (safeSvc === "general" || safeSvc === "dokter-umum") return d.serviceGeneral;
-    if (safeSvc === "dental" || safeSvc === "dokter-gigi") return d.serviceDental;
-    return d.serviceGeneral;
-  };
-
-  const getStatusLabel = (status) => {
-    const safeStatus = String(status || "").toUpperCase();
-    if (safeStatus === "PENDING") return d.statusPending;
-    if (safeStatus === "CONFIRMED") return d.statusConfirmed;
-    if (safeStatus === "COMPLETED") return d.statusCompleted;
-    if (safeStatus === "CANCELLED") return d.statusCancelled;
-    return d.statusPending;
-  };
-
-  const isActiveReservation = () => {
-    if (!activeReservation) return false;
-    const statusUpper = String(activeReservation.status || "").toUpperCase();
-    return ["PENDING", "CONFIRMED"].includes(statusUpper);
-  };
-
-  const handleRefresh = () => {
-    fetchReservationData();
-  };
+  const d = translations[lang];
 
   return (
     <div
@@ -439,11 +35,13 @@ export default function StudentAppointment() {
       <header className="relative z-10 bg-[#7A0C0C] text-white py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <img
-              src="/profil.png"
-              alt="Profil"
-              className="w-10 h-10 rounded-full object-cover border-2 border-white"
-            />
+            <a href="/student-profile">
+              <img
+                src="/profil.png"
+                alt="Profil"
+                className="w-10 h-10 rounded-full object-cover border-2 border-white cursor-pointer hover:opacity-80 transition-opacity"
+              />
+            </a>
           </div>
 
           <nav className="flex items-center gap-8 font-medium">
@@ -497,17 +95,10 @@ export default function StudentAppointment() {
         <div className="w-full max-w-xl md:max-w-2xl bg-white rounded-2xl shadow-2xl p-6 md:p-8">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-center">{d.title}</h1>
-            <button 
-              onClick={handleRefresh}
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
-            >
-              {lang === "id" ? "Refresh" : "Refresh"}
-            </button>
           </div>
 
           {isActiveReservation() ? (
             <div>
-              {/* STATUS BADGE */}
               <div
                 className={`reservation-status ${
                   String(activeReservation.status || "").toUpperCase() === "PENDING"
@@ -522,7 +113,6 @@ export default function StudentAppointment() {
                 {getStatusLabel(activeReservation.status)}
               </div>
 
-              {/* PENDING Section */}
               {String(activeReservation.status || "").toUpperCase() === "PENDING" && (
                 <div id="pending-section">
                   <p className="text-gray-600 text-center mb-4">
@@ -541,7 +131,6 @@ export default function StudentAppointment() {
                 </div>
               )}
 
-              {/* CONFIRMED with Countdown */}
               {String(activeReservation.status || "").toUpperCase() === "CONFIRMED" && (
                 <div id="countdown-section" className="countdown">
                   <div className="countdown-label">{d.countdownLabel}</div>
@@ -554,7 +143,7 @@ export default function StudentAppointment() {
                     <p><strong>{d.labelDate}:</strong> {new Date(activeReservation.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     <p><strong>{d.labelTime}:</strong> {activeReservation.time}</p>
                     <p className="text-sm text-gray-500 mt-2">
-                      {lang === "id" 
+                      {lang === "id"
                         ? "Dokter: " + (activeReservation.doctor?.name || "Belum ditentukan")
                         : "Doctor: " + (activeReservation.doctor?.name || "Not assigned")}
                     </p>
@@ -620,12 +209,11 @@ export default function StudentAppointment() {
                 {d.submit}
               </button>
 
-              {/* Tampilkan info jika ada appointment yang sudah selesai/dibatalkan */}
               {activeReservation && !isActiveReservation() && (
                 <div className="mt-4 p-4 bg-gray-100 rounded-xl text-center">
                   <p className="text-gray-700">
-                    {String(activeReservation.status || "").toUpperCase() === "COMPLETED" 
-                      ? d.appointmentCompleted 
+                    {String(activeReservation.status || "").toUpperCase() === "COMPLETED"
+                      ? d.appointmentCompleted
                       : d.appointmentCancelled}
                   </p>
                   <button

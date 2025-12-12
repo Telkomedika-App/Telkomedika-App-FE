@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentAppointment from "./pages/appointments/StudentAppointment";
 import DoctorAppointment from "./pages/appointments/DoctorAppointment";
+import StudentProfile from "./pages/StudentProfile";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="/student-appointments" element={<StudentAppointment />} />
         <Route path="/doctor-appointments" element={<DoctorAppointment />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/student-profile" element={<StudentProfile />} />
       </Routes>
     </Router>
   );

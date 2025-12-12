@@ -12,6 +12,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   STUDENT_APPOINTMENTS: "/student-appointments",
   DOCTOR_APPOINTMENTS: "/doctor-appointments",
+  STUDENT_PROFILE: "/student-profile",
   FORUM: "/forum",
 };
 
@@ -26,6 +27,7 @@ export const API_ENDPOINTS = {
   APPOINTMENTS: "/appointments",
   STUDENT_APPOINTMENTS: "/appointments/student",
   DOCTOR_APPOINTMENTS: "/appointments/doctor",
+  STUDENT_PROFILE: "/student-profile",
   FORUM: "/forum",
 };
 
