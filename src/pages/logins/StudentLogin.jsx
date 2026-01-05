@@ -10,7 +10,7 @@ export default function StudentLogin() {
       <InputField
         type="email"
         placeholder="Email"
-        label="Username"
+        label="Email"
         value={form.email}
         onChange={handleChange}
         name="email"

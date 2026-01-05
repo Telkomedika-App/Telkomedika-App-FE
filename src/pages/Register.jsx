@@ -1,6 +1,7 @@
 import useRegisterForm from "../hooks/useRegisterForm";
 import { ROUTES } from "../utils/constants";
 import InputField from "../components/InputField";
+import { Link } from "react-router-dom";
 
 export default function Register() {
   const { form, error, success, loading, handleChange, handleSubmit } = useRegisterForm();
@@ -15,8 +16,28 @@ export default function Register() {
         backgroundAttachment: "fixed",
       }}
     >
-      <div className="bg-[#a71930] px-8 py-4 flex justify-end">
-        <div className="text-white text-2xl">🌐</div>
+      {/* Header */}
+      <div className="bg-[#a71930] px-8 py-4 flex justify-between items-center">
+        <Link 
+          to={ROUTES.LOGIN} 
+          className="flex items-center gap-2 text-white hover:opacity-80 transition"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-6 w-6" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M10 19l-7-7m0 0l7-7m-7 7h18" 
+            />
+          </svg>
+          <span className="font-medium">Kembali</span>
+        </Link>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4 relative">
@@ -35,7 +56,7 @@ export default function Register() {
 
               <div className="flex-1 text-center">
                 <h1 className="text-black text-2xl font-bold">
-                  Registrasi <br /> Akun
+                  Daftar Akun
                 </h1>
               </div>
             </div>
@@ -101,9 +122,12 @@ export default function Register() {
 
                 <div className="text-center text-sm mb-4">
                   Sudah punya akun?{" "}
-                  <a href={ROUTES.LOGIN} className="text-blue-600 hover:underline font-semibold">
+                  <Link 
+                    to={ROUTES.LOGIN} 
+                    className="text-blue-600 hover:underline font-semibold"
+                  >
                     Login
-                  </a>
+                  </Link>
                 </div>
 
                 <button

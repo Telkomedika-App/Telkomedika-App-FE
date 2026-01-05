@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import StudentLogin from "./logins/StudentLogin";
 import DoctorLogin from "./logins/DoctorLogin";
 
@@ -8,7 +7,7 @@ export default function Login() {
   
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="min-h-screen flex flex-col relative"
       style={{
         backgroundImage: "url('/background.png')",
         backgroundSize: "cover",
@@ -16,27 +15,24 @@ export default function Login() {
         backgroundAttachment: "fixed",
       }}
     >
-      <div className="bg-[#a71930] px-8 py-4 flex justify-end">
-        <div className="text-white text-2xl">🌐</div>
-      </div>
+      {/* Overlay*/}
+      <div className="absolute inset-0 bg-black/60 z-0"></div>
 
-      <div className="flex-1 flex items-center justify-center p-4 relative">
-        <div className="absolute inset-0 bg-black/30"></div>
-
-        <div className="relative z-10 w-full max-w-xl">
+      <div className="flex-1 flex items-center justify-center p-4 relative z-10">
+        <div className="w-full max-w-xl">
           <div className="bg-white rounded-3xl shadow-2xl px-12 py-10">
             <div className="flex items-center gap-6 mb-8">
               <div className="flex-shrink-0">
                 <img
                   src="/telkomedikaLogo.png"
                   alt="TelkoMedika Logo"
-                  className="w-28"
+                  className="w-32"
                 />
               </div>
 
               <div className="flex-1 text-center">
                 <h1 className="text-black text-2xl font-bold">
-                  Welcome to <br /> MyTelkomedika
+                  Selamat Datang di <br /> MyTelkomedika
                 </h1>
               </div>
             </div>
@@ -51,7 +47,7 @@ export default function Login() {
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 }`}
               >
-                Student
+                Mahasiswa
               </button>
               <button
                 type="button"
@@ -62,7 +58,7 @@ export default function Login() {
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 }`}
               >
-                Doctor
+                Dokter
               </button>
             </div>
 
