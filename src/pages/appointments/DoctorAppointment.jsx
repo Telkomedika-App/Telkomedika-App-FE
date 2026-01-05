@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { fetchAPI } from "../../api/client";
 import { LOCAL_STORAGE_KEYS, API_ENDPOINTS } from "../../utils/constants";
+import { jwtDecode } from "jwt-decode";
 
 const translations = {
   id: {
@@ -22,6 +23,10 @@ const translations = {
     cancel: "Batalkan",
     appointmentList: "Daftar Appointment",
     appointmentDetail: "Detail Appointment",
+    logoutConfirmTitle: "Konfirmasi Keluar",
+    logoutConfirmMessage: "Apakah Anda yakin ingin keluar dari akun Anda?",
+    logoutCancel: "Batal",
+    logoutConfirm: "Ya, Keluar",
   },
   en: {
     title: "Doctor Reservations",
@@ -41,12 +46,15 @@ const translations = {
     cancel: "Cancel",
     appointmentList: "Appointment List",
     appointmentDetail: "Appointment Detail",
+    logoutConfirmTitle: "Confirm Logout",
+    logoutConfirmMessage: "Are you sure you want to logout from your account?",
+    logoutCancel: "Cancel",
+    logoutConfirm: "Logout",
   },
 };
 
 export default function DoctorAppointment() {
   const [lang, setLang] = useState("id");
-  const [langPanelVisible, setLangPanelVisible] = useState(false);
   const t = translations[lang];
 
   const navigate = useNavigate();
@@ -55,11 +63,94 @@ export default function DoctorAppointment() {
   const [selected, setSelected] = useState(null);
   const [countdown, setCountdown] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("PENDING");
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [doctorData, setDoctorData] = useState(null);
+
   const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN);
 
   useEffect(() => {
     document.documentElement.setAttribute("lang", lang);
   }, [lang]);
+
+  useEffect(() => {
+    const storedDoctorData = localStorage.getItem(LOCAL_STORAGE_KEYS.USER_DATA);
+    if (storedDoctorData) {
+      try {
+        setDoctorData(JSON.parse(storedDoctorData));
+      } catch (error) {
+        console.error("Error parsing doctor data:", error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const ensureDoctorProfile = async () => {
+      try {
+        const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN) || localStorage.getItem("authToken") || localStorage.getItem("token");
+        if (token && !localStorage.getItem("doctorName")) {
+          try {
+            const decoded = jwtDecode(token);
+            const nameFromToken = decoded?.name || decoded?.fullName || decoded?.username || "";
+            if (nameFromToken) {
+              localStorage.setItem("doctorName", nameFromToken);
+            }
+          } catch (_) {}
+        }
+        if (!doctorData) {
+          const res = await fetchAPI("/doctor-profile", {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
+          if (res?.success && res?.data) {
+            setDoctorData(res.data);
+            const name = res.data.name || res.data.fullName || "";
+            if (name) {
+              localStorage.setItem("doctorName", name);
+            }
+            localStorage.setItem(LOCAL_STORAGE_KEYS.USER_DATA, JSON.stringify(res.data));
+          }
+        }
+      } catch (e) {
+        // silent
+      }
+    };
+    ensureDoctorProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const getInitial = () => {
+    const name =
+      doctorData?.name ||
+      doctorData?.fullName ||
+      (localStorage.getItem("doctorName") || "").trim() ||
+      (() => {
+        try {
+          const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN) || localStorage.getItem("authToken") || localStorage.getItem("token");
+          if (!token) return "";
+          const decoded = jwtDecode(token);
+          return decoded?.name || decoded?.fullName || decoded?.username || "";
+        } catch {
+          return "";
+        }
+      })();
+    if (name) return name.charAt(0).toUpperCase();
+    return "D";
+  };
+
+  const handleLogout = () => {
+    setLogoutModalVisible(true);
+  };
+
+  const confirmLogout = () => {
+    Object.values(LOCAL_STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+
+    localStorage.removeItem("activeReservation");
+    localStorage.removeItem("lastShownCancellationId");
+
+    navigate("/login");
+    setLogoutModalVisible(false);
+  };
 
   const loadAppointments = async () => {
     try {
@@ -88,7 +179,6 @@ export default function DoctorAppointment() {
 
       if (diff <= 0) {
         clearInterval(interval);
-
         const updated = { ...selected, status: "COMPLETED" };
         setSelected(updated);
         return;
@@ -108,16 +198,12 @@ export default function DoctorAppointment() {
     loadAppointments();
   }, []);
 
-  // Approve appointment
   const approve = async (id) => {
     try {
       const res = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}/confirm`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (res.success) {
         await loadAppointments();
         alert(lang === "id" ? "Appointment disetujui!" : "Appointment approved!");
@@ -127,16 +213,13 @@ export default function DoctorAppointment() {
     }
   };
 
-  // Cancel appointment
   const cancelAppointment = async (id) => {
     if (!window.confirm(t.cancelBtn)) return;
 
     try {
       const res = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}/cancel`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.success) {
@@ -148,7 +231,6 @@ export default function DoctorAppointment() {
     }
   };
 
-  // Change status (doctor)
   const changeStatus = async (id, status) => {
     try {
       const res = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}/status`, {
@@ -157,7 +239,7 @@ export default function DoctorAppointment() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: status.toLowerCase() }),
+        body: JSON.stringify({ status: status.toUpperCase() }),
       });
 
       if (!res || res.success !== true) {
@@ -165,7 +247,6 @@ export default function DoctorAppointment() {
         return;
       }
 
-      // Reload updated appointment
       const fresh = await fetchAPI(`${API_ENDPOINTS.APPOINTMENTS}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -179,115 +260,124 @@ export default function DoctorAppointment() {
     }
   };
 
-  const toggleLangPanel = (e) => {
-    e.stopPropagation();
-    setLangPanelVisible(!langPanelVisible);
-  };
-
-  const changeLanguage = (newLang) => {
-    setLang(newLang);
-    setLangPanelVisible(false);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setLangPanelVisible(false);
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
-
   return (
     <div className="min-h-screen bg-cover bg-center relative" style={{ backgroundImage: 'url("/background.png")' }}>
       <div className="absolute inset-0 bg-black/40" />
 
-      <header className="relative z-10 bg-[#7A0C0C] text-white py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <img src="/profil.png" alt="Profil" className="w-10 h-10 rounded-full object-cover border-2 border-white" />
-          </div>
+      {/* Modal Konfirmasi Logout */}
+      {logoutModalVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center">
+            <h2 className="text-xl font-bold mb-3">
+              Konfirmasi Keluar
+            </h2>
 
-          <nav className="flex items-center gap-8 font-medium">
-            <a href="/" className="hover:text-gray-200 transition-colors">{t.navHome}</a>
-            <a href="#" className="hover:text-gray-200 transition-colors">{t.navArticles}</a>
-            <a href="#" className="hover:text-gray-200 transition-colors">{t.navForum}</a>
-            <a href="/doctor-appointments" className="text-yellow-300 font-semibold underline">{t.navReservation}</a>
-          </nav>
+            <p className="text-gray-600 mb-6">
+              Apakah Anda yakin ingin keluar?
+            </p>
 
-          <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-red-800 rounded-lg transition-colors">
-              <img src="/message.png" alt="Pesan" className="w-6 h-6" />
-            </button>
-
-            <div className="relative">
-              <button onClick={toggleLangPanel} className="p-2 hover:bg-red-800 rounded-lg transition-colors">
-                <img src="/globe.png" alt="Bahasa" className="w-6 h-6" />
+            <div className="flex gap-4">
+              <button
+                onClick={() => setLogoutModalVisible(false)}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition"
+              >
+                Batal
               </button>
 
-              {langPanelVisible && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-lg py-2 min-w-[140px] z-20">
-                  <button onClick={() => changeLanguage("id")} className="flex items-center gap-3 w-full px-4 py-2 hover:bg-gray-100 transition-colors">
-                    <img src="/indonesia.png" alt="ID" className="w-5 h-4" />
-                    <span className="text-gray-800">Bahasa</span>
-                  </button>
-                  <button onClick={() => changeLanguage("en")} className="flex items-center gap-3 w-full px-4 py-2 hover:bg-gray-100 transition-colors">
-                    <img src="/united states.png" alt="EN" className="w-5 h-4" />
-                    <span className="text-gray-800">English</span>
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={confirmLogout}
+                className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
+              >
+                Ya, Keluar
+              </button>
             </div>
-
-            <button onClick={() => navigate("/login")} className="bg-white text-[#7A0C0C] px-4 py-2 rounded-xl font-semibold hover:bg-gray-100 transition-colors">
-              {t.logout}
-            </button>
           </div>
         </div>
-      </header>
+      )}
 
+      {/* HEADER*/}
+      <header
+        className="bg-[#7A0C0C] text-white h-20 flex items-center justify-between px-6 shadow-lg fixed top-0 left-0 right-0 z-50"
+        style={{ pointerEvents: 'auto' }}
+      >
+
+        {/*Profil*/}
+        <Link
+          to="/doctor-profile"
+          className="flex items-center gap-3 no-underline hover:opacity-90 transition-opacity"
+        >
+          <div
+            className="w-16 h-16 rounded-full bg-gradient-to-br from-[#a71930] to-[#8b1428] flex items-center justify-center text-white text-3xl font-bold shadow-lg"
+          >
+            {getInitial()}
+          </div>
+        </Link>
+
+        {/* MENU */}
+        <nav className="flex gap-8 font-medium">
+          <Link
+            to="/beranda-doctor"
+            className="hover:text-gray-200 transition-colors"
+          >
+            {t.navHome}
+          </Link>
+          <Link
+            to="/artikel/doctor"
+            className="hover:text-gray-200 transition-colors"
+          >
+            {t.navArticles}
+          </Link>
+          <Link
+            to="/doctor/forum"
+            className="hover:text-gray-200 transition-colors"
+          >
+            {t.navForum}
+          </Link>
+          <div className="text-yellow-300 underline font-semibold" style={{ cursor: 'default' }}>
+            {t.navReservation}
+          </div>
+        </nav>
+
+        {/* RIGHT */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleLogout}
+            className="bg-white text-[#7A0C0C] px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-lg"
+          >
+            {t.logout}
+          </button>
+        </div>
+      </header>
       <div className="relative z-10 max-w-5xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6 text-white text-center">{t.title}</h1>
 
+        {/* Appointment List */}
         <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">{t.appointmentList}</h2>
-
           <div className="space-y-4">
             {appointments.length > 0 ? (
               appointments.map((item) => (
                 <div
                   key={item.id}
                   className="p-4 border-2 border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 hover:border-[#7A0C0C] transition-all"
-                  onClick={() => { setSelected(item); setSelectedStatus(item.status); }}
+                  onClick={() => {
+                    setSelected(item);
+                    setSelectedStatus(item.status);
+                  }}
                 >
                   <p className="font-bold text-lg text-gray-800">{item.fullName}</p>
                   <p className="text-sm text-gray-600 mt-1">
-                    {item.service === "dokter-umum" 
-                      ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service")
-                      : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
+                    {item.service === "dokter-umum" ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service") : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    {new Date(item.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US")} • {item.time}
-                  </p>
-
-                  <span className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${
-                    item.status === "PENDING"
-                      ? "bg-yellow-200 text-yellow-900"
-                      : item.status === "CONFIRMED"
-                      ? "bg-blue-200 text-blue-900"
-                      : item.status === "CANCELLED"
-                      ? "bg-red-200 text-red-900"
-                      : "bg-green-200 text-green-900"
-                  }`}>
-                    {item.status === "PENDING"
-                      ? (lang === "id" ? "MENUNGGU" : "PENDING")
-                      : item.status === "CONFIRMED"
-                      ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
-                      : item.status === "CANCELLED"
-                      ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
-                      : (lang === "id" ? "SELESAI" : "COMPLETED")}
+                  <p className="text-sm text-gray-600">{new Date(item.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US")} • {item.time}</p>
+                  <span className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${item.status === "PENDING" ? "bg-yellow-200 text-yellow-900"
+                      : item.status === "CONFIRMED" ? "bg-blue-200 text-blue-900"
+                        : item.status === "CANCELLED" ? "bg-red-200 text-red-900"
+                          : "bg-green-200 text-green-900"}`}>
+                    {item.status === "PENDING" ? (lang === "id" ? "MENUNGGU" : "PENDING")
+                      : item.status === "CONFIRMED" ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
+                        : item.status === "CANCELLED" ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
+                          : (lang === "id" ? "SELESAI" : "COMPLETED")}
                   </span>
                 </div>
               ))
@@ -297,6 +387,7 @@ export default function DoctorAppointment() {
           </div>
         </div>
 
+        {/* Appointment Detail */}
         {selected && (
           <div className="bg-white rounded-2xl shadow-2xl p-6">
             <h2 className="text-xl font-bold mb-4">{t.appointmentDetail}</h2>
@@ -312,20 +403,14 @@ export default function DoctorAppointment() {
               </div>
               <div>
                 <p className="font-semibold text-gray-700">{t.labelService}</p>
-                <p className="text-gray-900">{selected.service === "dokter-umum" 
-                    ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service")
-                    : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
+                <p className="text-gray-900">
+                  {selected.service === "dokter-umum" ? (lang === "id" ? "Layanan Dokter Umum" : "General Practitioner Service") : (lang === "id" ? "Layanan Dokter Gigi" : "Dental Service")}
                 </p>
               </div>
               <div>
                 <p className="font-semibold text-gray-700">{t.labelDate}</p>
                 <p className="text-gray-900">
-                  {new Date(selected.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  {new Date(selected.date).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
               <div>
@@ -334,22 +419,14 @@ export default function DoctorAppointment() {
               </div>
               <div>
                 <p className="font-semibold text-gray-700">{lang === "id" ? "Status" : "Status"}</p>
-                <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-                    selected.status === "PENDING"
-                      ? "bg-yellow-200 text-yellow-900"
-                      : selected.status === "CONFIRMED"
-                      ? "bg-blue-200 text-blue-900"
-                      : selected.status === "CANCELLED"
-                      ? "bg-red-200 text-red-900"
-                      : "bg-green-200 text-green-900"
-                  }`}>
-                  {selected.status === "PENDING"
-                    ? (lang === "id" ? "MENUNGGU" : "PENDING")
-                    : selected.status === "CONFIRMED"
-                    ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
-                    : selected.status === "CANCELLED"
-                    ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
-                    : (lang === "id" ? "SELESAI" : "COMPLETED")}
+                <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${selected.status === "PENDING" ? "bg-yellow-200 text-yellow-900"
+                    : selected.status === "CONFIRMED" ? "bg-blue-200 text-blue-900"
+                      : selected.status === "CANCELLED" ? "bg-red-200 text-red-900"
+                        : "bg-green-200 text-green-900"}`}>
+                  {selected.status === "PENDING" ? (lang === "id" ? "MENUNGGU" : "PENDING")
+                    : selected.status === "CONFIRMED" ? (lang === "id" ? "DISETUJUI" : "CONFIRMED")
+                      : selected.status === "CANCELLED" ? (lang === "id" ? "DIBATALKAN" : "CANCELLED")
+                        : (lang === "id" ? "SELESAI" : "COMPLETED")}
                 </span>
               </div>
             </div>
@@ -362,33 +439,6 @@ export default function DoctorAppointment() {
             )}
 
             <div className="flex gap-3 mt-6 flex-wrap">
-              {selected.status === "PENDING" && (
-                <>
-                  <button
-                    onClick={() => approve(selected.id)}
-                    className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors"
-                  >
-                    {t.approve}
-                  </button>
-
-                  <button
-                    onClick={() => cancelAppointment(selected.id)}
-                    className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
-                  >
-                    {t.cancel}
-                  </button>
-                </>
-              )}
-
-              {(selected.status === "CONFIRMED" || selected.status === "COMPLETED") && (
-                <button
-                  onClick={() => cancelAppointment(selected.id)}
-                  className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
-                >
-                  {t.cancelBtn}
-                </button>
-              )}
-
               <div className="flex-1">
                 <select
                   className="w-full px-3 py-2 border rounded-xl"
@@ -401,6 +451,7 @@ export default function DoctorAppointment() {
                   <option value="COMPLETED">COMPLETED</option>
                 </select>
               </div>
+
               <button
                 onClick={() => changeStatus(selected.id, selectedStatus)}
                 className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors"
@@ -408,6 +459,24 @@ export default function DoctorAppointment() {
                 {lang === "id" ? "Ubah Status" : "Update Status"}
               </button>
             </div>
+
+            {/* Tombol untuk approve/cancel hehe*/}
+            {selected.status === "PENDING" && (
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => approve(selected.id)}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors"
+                >
+                  {t.approve}
+                </button>
+                <button
+                  onClick={() => cancelAppointment(selected.id)}
+                  className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

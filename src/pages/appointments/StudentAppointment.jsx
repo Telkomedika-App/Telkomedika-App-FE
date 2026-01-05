@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
-import { API_BASE_URL, API_ENDPOINTS } from "../../utils/constants";
+import { API_BASE_URL, API_ENDPOINTS, LOCAL_STORAGE_KEYS } from "../../utils/constants";
 
 export default function StudentAppointment() {
   const navigate = useNavigate();
-  const token =
-    localStorage.getItem("authToken") || localStorage.getItem("token");
+  const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN);
 
-  const [lang, setLang] = useState("id");
-  const [langPanelVisible, setLangPanelVisible] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -20,8 +19,49 @@ export default function StudentAppointment() {
   });
 
   const [activeReservation, setActiveReservation] = useState(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const [countdown, setCountdown] = useState("");
+  const [cancelledNoticeVisible, setCancelledNoticeVisible] = useState(false);
+  const [adminCancelledNoticeVisible, setAdminCancelledNoticeVisible] = useState(false);
+  const [adminCancelledData, setAdminCancelledData] = useState(null);
+
+  useEffect(() => {
+    const storedUserData = localStorage.getItem(LOCAL_STORAGE_KEYS.USER_DATA);
+    if (storedUserData) {
+      try {
+        setUserData(JSON.parse(storedUserData));
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }
+  }, []);
+
+  const getInitial = () => {
+    if (userData?.name) {
+      return userData.name.charAt(0).toUpperCase();
+    }
+    if (userData?.fullName) {
+      return userData.fullName.charAt(0).toUpperCase();
+    }
+    return "M";
+  };
+
+  const handleLogout = () => {
+    setLogoutModalVisible(true);
+  };
+
+  const confirmLogout = () => {
+    Object.values(LOCAL_STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    localStorage.removeItem("activeReservation");
+    localStorage.removeItem("lastShownCancellationId");
+    
+    navigate("/login");
+    setLogoutModalVisible(false);
+  };
 
   const t = {
     id: {
@@ -50,61 +90,33 @@ export default function StudentAppointment() {
       statusCancelled: "Reservasi Dibatalkan",
       countdownLabel: "Menuju waktu reservasi:",
       cancelBtn: "Batalkan Reservasi",
-      cancelConfirm:
-        "Apakah Anda yakin ingin membatalkan reservasi? Permintaan pembatalan akan dikirim ke admin.",
+      cancelConfirm: "Apakah Anda yakin ingin membatalkan reservasi? Permintaan pembatalan akan dikirim ke admin.",
       cancelSuccess: "Permintaan pembatalan telah dikirim ke admin",
       noReservation: "Tidak ada reservasi aktif",
       alreadyReservation: "Anda sudah memiliki reservasi aktif",
       appointmentCompleted: "Appointment sudah selesai",
       appointmentCancelled: "Appointment sudah dibatalkan",
-    },
-    en: {
-      title: "Reservation",
-      subtitle: "Please complete your reservation data",
-      labelName: "Full Name",
-      placeholderName: "Enter your full name",
-      labelPhone: "Phone Number",
-      placeholderPhone: "Example: 081234567890",
-      labelDate: "Date",
-      labelTime: "Time",
-      labelService: "Service",
-      serviceGeneral: "General Practitioner Service",
-      serviceDental: "Dental Service",
-      submit: "Submit Reservation",
-      logout: "Logout",
-      success: "Reservation submitted successfully and waiting for admin approval",
-      navHome: "Home",
-      navArticles: "Health Articles",
-      navForum: "Discussion Forum",
-      navReservation: "Reservation",
-      errFill: "Please complete all fields",
-      statusPending: "Waiting for Admin Approval",
-      statusConfirmed: "Reservation Confirmed", 
-      statusCompleted: "Reservation Completed",
-      statusCancelled: "Reservation Cancelled",
-      countdownLabel: "Time until reservation:",
-      cancelBtn: "Cancel Reservation",
-      cancelConfirm:
-        "Are you sure you want to cancel the reservation? Cancellation request will be sent to admin.",
-      cancelSuccess: "Cancellation request has been sent to admin",
-      noReservation: "No active reservation",
-      alreadyReservation: "You already have an active reservation",
-      appointmentCompleted: "Appointment completed",
-      appointmentCancelled: "Appointment cancelled",
+      adminCancelledTitle: "Reservasi Dibatalkan",
+      adminCancelledMessage: "Admin telah membatalkan reservasi Anda.",
+      adminCancelledDetails: "Detail Reservasi Dibatalkan:",
+      adminCancelledReason: "Alasan Pembatalan:",
+      adminCancelledOK: "OK",
+      logoutConfirmTitle: "Konfirmasi Keluar",
+      logoutConfirmMessage: "Apakah Anda yakin ingin keluar dari akun Anda?",
+      logoutCancel: "Batal",
+      logoutConfirm: "Ya, Keluar",
     },
   };
 
   useEffect(() => {
-    document.documentElement.setAttribute("lang", lang);
-  }, [lang]);
+    document.documentElement.setAttribute("lang", "id");
+  }, []);
 
-  // Utility: safe parse and select an "active" reservation from various BE shapes
   function pickActiveReservationFromResponse(data) {
     if (!data) return null;
 
     if (!Array.isArray(data) && typeof data === "object") {
       const status = String(data.status || "").toUpperCase();
-      // Hanya return jika status aktif
       if (["PENDING", "CONFIRMED"].includes(status)) {
         return data;
       }
@@ -135,7 +147,90 @@ export default function StudentAppointment() {
     setActiveReservation(null);
   }
 
-  const fetchReservationData = async () => {
+  function checkForAdminCancellation(data) {
+    if (!data) return null;
+    
+    if (Array.isArray(data)) {
+      const cancelledReservations = data
+        .filter((a) => a && a.status)
+        .filter((a) => {
+          const status = String(a.status || "").toUpperCase();
+          return status === "CANCELLED";
+        })
+        .sort((a, b) => {
+          const ta = new Date(a.updatedAt || a.date).getTime() || 0;
+          const tb = new Date(b.updatedAt || b.date).getTime() || 0;
+          return tb - ta; 
+        });
+
+      if (cancelledReservations.length > 0) {
+        const latestCancelled = cancelledReservations[0];
+     
+        const lastShownCancellation = localStorage.getItem("lastShownCancellationId");
+        if (lastShownCancellation === latestCancelled.id || lastShownCancellation === latestCancelled._id) {
+          return null;
+        }
+ 
+        if (latestCancelled.id) {
+          localStorage.setItem("lastShownCancellationId", latestCancelled.id);
+        } else if (latestCancelled._id) {
+          localStorage.setItem("lastShownCancellationId", latestCancelled._id);
+        }
+        
+        return latestCancelled;
+      }
+    }
+    
+    if (!Array.isArray(data) && typeof data === "object") {
+      const status = String(data.status || "").toUpperCase();
+      if (status === "CANCELLED") {
+        const lastShownCancellation = localStorage.getItem("lastShownCancellationId");
+        const currentId = data.id || data._id;
+        if (lastShownCancellation === currentId) {
+          return null;
+        }
+        
+        if (currentId) {
+          localStorage.setItem("lastShownCancellationId", currentId);
+        }
+        
+        return data;
+      }
+    }
+
+    return null;
+  }
+
+  function checkForCompletedOrCancelled(data) {
+    if (!data) return null;
+    
+    if (Array.isArray(data)) {
+      const completedOrCancelled = data
+        .filter((a) => a && a.status)
+        .filter((a) => {
+          const status = String(a.status || "").toUpperCase();
+          return ["COMPLETED", "CANCELLED"].includes(status);
+        })
+        .sort((a, b) => {
+          const ta = new Date(a.updatedAt || a.date).getTime() || 0;
+          const tb = new Date(b.updatedAt || b.date).getTime() || 0;
+          return tb - ta;
+        });
+
+      return completedOrCancelled.length > 0 ? completedOrCancelled[0] : null;
+    }
+    
+    if (!Array.isArray(data) && typeof data === "object") {
+      const status = String(data.status || "").toUpperCase();
+      if (["COMPLETED", "CANCELLED"].includes(status)) {
+        return data;
+      }
+    }
+    
+    return null;
+  }
+
+  const fetchReservationData = async (showNotification = true) => {
     if (!token) return;
 
     try {
@@ -147,10 +242,52 @@ export default function StudentAppointment() {
 
       const maybeData = res?.data?.data ?? res?.data;
 
+      if (showNotification) {
+        const adminCancelledReservation = checkForAdminCancellation(maybeData);
+        if (adminCancelledReservation) {
+          setAdminCancelledData(adminCancelledReservation);
+          setAdminCancelledNoticeVisible(true);
+          clearLocalActiveReservation();
+        }
+      }
+
       const picked = pickActiveReservationFromResponse(maybeData);
 
       if (!picked) {
-        clearLocalActiveReservation();
+        const saved = JSON.parse(localStorage.getItem("activeReservation") || "null");
+        
+        if (saved) {
+          const savedStatus = String(saved.status || "").toUpperCase();
+          
+          if (["PENDING", "CONFIRMED"].includes(savedStatus)) {
+            const completedOrCancelled = checkForCompletedOrCancelled(maybeData);
+            
+            if (completedOrCancelled) {
+              localStorage.setItem("activeReservation", JSON.stringify(completedOrCancelled));
+              setActiveReservation(completedOrCancelled);
+              
+              const status = String(completedOrCancelled.status || "").toUpperCase();
+              if (status === "CANCELLED" && showNotification) {
+                const lastShown = localStorage.getItem("lastShownCancellationId");
+                const currentId = completedOrCancelled.id || completedOrCancelled._id;
+                
+                if (lastShown !== currentId) {
+                  setAdminCancelledData(completedOrCancelled);
+                  setAdminCancelledNoticeVisible(true);
+                  if (currentId) {
+                    localStorage.setItem("lastShownCancellationId", currentId);
+                  }
+                }
+              }
+            } else {
+              clearLocalActiveReservation();
+            }
+          } else {
+            setActiveReservation(saved);
+          }
+        } else {
+          clearLocalActiveReservation();
+        }
         return;
       }
 
@@ -164,47 +301,49 @@ export default function StudentAppointment() {
       const normalized = { ...picked, date: dateOnly };
       const statusUpper = String(normalized.status || "").toUpperCase();
 
-      // Jika status adalah CANCELLED atau COMPLETED, clear dari localStorage
-      if (["CANCELLED", "COMPLETED"].includes(statusUpper)) {
-        clearLocalActiveReservation();
-        return;
-      }
-
       localStorage.setItem("activeReservation", JSON.stringify(normalized));
       setActiveReservation(normalized);
+
     } catch (err) {
       console.error("Error fetching reservation:", err);
       try {
         const saved = JSON.parse(localStorage.getItem("activeReservation") || "null");
         if (saved) {
           const savedStatus = String(saved.status || "").toUpperCase();
-          if (!["CANCELLED", "COMPLETED"].includes(savedStatus)) {
-            setActiveReservation(saved);
-          }
+          setActiveReservation(saved);
         }
       } catch (e) {
         setActiveReservation(null);
       }
+    } finally {
+      setInitialLoadDone(true);
     }
   };
 
-  // Load active reservation dari backend dan localStorage
   useEffect(() => {
-    fetchReservationData();
+    if (!initialLoadDone) {
+      fetchReservationData();
+    }
 
-    // set min date for date input
     const today = new Date().toISOString().split("T")[0];
     const dateInput = document.getElementById("input-date");
     if (dateInput) dateInput.min = today;
+  }, [token, initialLoadDone]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchReservationData(false); 
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [token]);
 
   useEffect(() => {
     if (!activeReservation) return;
 
-    const interval = setInterval(() => {
-      const statusUpper = String(activeReservation.status || "").toUpperCase();
-      if (statusUpper === "CONFIRMED") {
-        // Cek apakah waktu appointment sudah lewat
+    const statusUpper = String(activeReservation.status || "").toUpperCase();
+    if (statusUpper === "CONFIRMED") {
+      const interval = setInterval(() => {
         const now = new Date();
         const appointmentDate = activeReservation.date;
         const appointmentTime = activeReservation.time;
@@ -212,13 +351,13 @@ export default function StudentAppointment() {
         if (appointmentDate && appointmentTime) {
           const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
           if (now > appointmentDateTime) {
-            fetchReservationData();
+            fetchReservationData(false);
           }
         }
-      }
-    }, 30000); 
+      }, 30000); 
 
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    }
   }, [activeReservation]);
 
   useEffect(() => {
@@ -243,7 +382,6 @@ export default function StudentAppointment() {
     const interval = setInterval(() => {
       const now = new Date();
       
-      // Format date properly
       let targetDateStr = dateStr;
       if (targetDateStr.includes("T")) {
         targetDateStr = targetDateStr.split("T")[0];
@@ -255,7 +393,7 @@ export default function StudentAppointment() {
       if (diff <= 0) {
         clearInterval(interval);
         setCountdown("00:00:00");
-        fetchReservationData(); // Refresh data dari server
+        fetchReservationData(false);
         return;
       }
 
@@ -274,21 +412,19 @@ export default function StudentAppointment() {
   // Submit reservation
   const handleSubmit = async () => {
     if (!form.name || !form.phone || !form.date || !form.time) {
-      alert(t[lang].errFill);
+      alert(t.id.errFill);
       return;
     }
 
-    // Cek apakah sudah ada appointment aktif
     if (activeReservation) {
       const statusUpper = String(activeReservation.status || "").toUpperCase();
       if (["PENDING", "CONFIRMED"].includes(statusUpper)) {
-        alert(t[lang].alreadyReservation);
+        alert(t.id.alreadyReservation);
         return;
       }
     }
 
     try {
-      // Mapping service ke format backend
       let serviceCode;
       if (form.service === "dokter-umum") {
         serviceCode = "general";
@@ -327,11 +463,9 @@ export default function StudentAppointment() {
 
       const newReservation = { ...newData, date: dateOnly };
 
-      // Simpan ke localStorage
       localStorage.setItem("activeReservation", JSON.stringify(newReservation));
       setActiveReservation(newReservation);
 
-      // Reset form
       setForm({
         name: "",
         phone: "",
@@ -340,18 +474,19 @@ export default function StudentAppointment() {
         service: "dokter-umum",
       });
 
-      alert(t[lang].success);
+      localStorage.removeItem("lastShownCancellationId");
+
+      alert(t.id.success);
     } catch (err) {
       console.error("Create appointment failed:", err?.response?.data || err.message);
       alert(err?.response?.data?.message || "Gagal membuat reservasi.");
     }
   };
 
-  // Cancel reservation
   const cancelReservation = async () => {
     if (!activeReservation) return;
     
-    if (!window.confirm(t[lang].cancelConfirm)) return;
+    if (!window.confirm(t.id.cancelConfirm)) return;
 
     const id = activeReservation.id || activeReservation._id || null;
 
@@ -367,11 +502,11 @@ export default function StudentAppointment() {
         );
 
         if (res?.data?.success) {
-          // Update local state ke CANCELLED
           const updated = { ...activeReservation, status: "CANCELLED" };
           localStorage.setItem("activeReservation", JSON.stringify(updated));
           setActiveReservation(updated);
-          alert(t[lang].cancelSuccess);
+          setCancelledNoticeVisible(true);
+          alert(t.id.cancelSuccess);
         } else {
           alert(res?.data?.message || "Gagal membatalkan reservasi.");
         }
@@ -384,23 +519,7 @@ export default function StudentAppointment() {
     }
   };
 
-  const toggleLangPanel = (e) => {
-    e.stopPropagation();
-    setLangPanelVisible(!langPanelVisible);
-  };
-
-  const changeLanguage = (newLang) => {
-    setLang(newLang);
-    setLangPanelVisible(false);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = () => setLangPanelVisible(false);
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  const d = t[lang];
+  const d = t.id;
 
   const serviceLabel = (svc) => {
     const safeSvc = String(svc || "").toLowerCase();
@@ -425,8 +544,32 @@ export default function StudentAppointment() {
   };
 
   const handleRefresh = () => {
-    fetchReservationData();
+    fetchReservationData(true);
   };
+
+  const handleCloseAdminCancelledModal = () => {
+    setAdminCancelledNoticeVisible(false);
+    setAdminCancelledData(null);
+    
+    if (activeReservation) {
+      const statusUpper = String(activeReservation.status || "").toUpperCase();
+      if (statusUpper === "CANCELLED") {
+        setForm({
+          name: "",
+          phone: "",
+          date: "",
+          time: "",
+          service: "dokter-umum",
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      setInitialLoadDone(false);
+    };
+  }, []);
 
   return (
     <div
@@ -435,62 +578,161 @@ export default function StudentAppointment() {
     >
       <div className="absolute inset-0 bg-black/40" />
 
-      {/* HEADER */}
-      <header className="relative z-10 bg-[#7A0C0C] text-white py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <img
-              src="/profil.png"
-              alt="Profil"
-              className="w-10 h-10 rounded-full object-cover border-2 border-white"
-            />
-          </div>
-
-          <nav className="flex items-center gap-8 font-medium">
-            <a href="/" className="hover:text-gray-200 transition-colors">
-              {d.navHome}
-            </a>
-            <a href="#" className="hover:text-gray-200 transition-colors">
-              {d.navArticles}
-            </a>
-            <a href="#" className="hover:text-gray-200 transition-colors">
-              {d.navForum}
-            </a>
-            <a href="/student-appointments" className="text-yellow-300 font-semibold underline">
-              {d.navReservation}
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-red-800 rounded-lg transition-colors">
-              <img src="/message.png" alt="Pesan" className="w-6 h-6" />
-            </button>
-
-            <div className="relative">
-              <button onClick={toggleLangPanel} className="p-2 hover:bg-red-800 rounded-lg transition-colors">
-                <img src="/globe.png" alt="Bahasa" className="w-6 h-6" />
-              </button>
-
-              {langPanelVisible && (
-                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-lg py-2 min-w-[140px] z-20">
-                  <button onClick={() => changeLanguage("id")} className="flex items-center gap-3 w-full px-4 py-2 hover:bg-gray-100 transition-colors">
-                    <img src="/indonesia.png" alt="ID" className="w-5 h-4" />
-                    <span className="text-gray-800">Bahasa</span>
-                  </button>
-                  <button onClick={() => changeLanguage("en")} className="flex items-center gap-3 w-full px-4 py-2 hover:bg-gray-100 transition-colors">
-                    <img src="/united states.png" alt="EN" className="w-5 h-4" />
-                    <span className="text-gray-800">English</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <button onClick={() => navigate("/login")} className="bg-white text-[#7A0C0C] px-4 py-2 rounded-xl font-semibold hover:bg-gray-100 transition-colors">
-              {d.logout}
+      {/* Modal untuk reservasi dibatalkan oleh user */}
+      {cancelledNoticeVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-2">Reservasi Dibatalkan</h3>
+            <p className="text-gray-700 mb-4">Reservasi telah dibatalkan</p>
+            <button
+              onClick={() => {
+                setCancelledNoticeVisible(false);
+                clearLocalActiveReservation();
+              }}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              OK
             </button>
           </div>
         </div>
-      </header>
+      )}
+
+      {/* Modal untuk pembatalan oleh admin */}
+      {adminCancelledNoticeVisible && adminCancelledData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-xl font-bold mb-2 text-red-600">{d.adminCancelledTitle}</h3>
+            <p className="text-gray-700 mb-4">{d.adminCancelledMessage}</p>
+            
+            <div className="mb-4">
+              <p className="font-semibold text-gray-800 mb-2">{d.adminCancelledDetails}</p>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p><strong>{d.labelName}:</strong> {adminCancelledData.fullName || adminCancelledData.name}</p>
+                <p><strong>{d.labelService}:</strong> {serviceLabel(adminCancelledData.service)}</p>
+                <p><strong>{d.labelDate}:</strong> {adminCancelledData.date ? new Date(adminCancelledData.date).toLocaleDateString() : 'N/A'}</p>
+                <p><strong>{d.labelTime}:</strong> {adminCancelledData.time || 'N/A'}</p>
+                {adminCancelledData.cancellationReason && (
+                  <p className="mt-2"><strong>{d.adminCancelledReason}</strong> {adminCancelledData.cancellationReason}</p>
+                )}
+              </div>
+            </div>
+            
+            <button
+              onClick={handleCloseAdminCancelledModal}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {d.adminCancelledOK}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Logout */}
+{/* Modal Konfirmasi Logout */}
+{logoutModalVisible && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+      
+      <h3 className="text-xl font-bold mb-3 text-gray-800 text-center">
+        {d.logoutConfirmTitle}
+      </h3>
+
+      <p className="text-gray-600 mb-6 text-center">
+        {d.logoutConfirmMessage}
+      </p>
+
+      <div className="flex gap-4">
+        <button
+          onClick={() => setLogoutModalVisible(false)}
+          className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+        >
+          {d.logoutCancel}
+        </button>
+
+        <button
+          onClick={confirmLogout}
+          className="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+        >
+          {d.logoutConfirm}
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
+
+    {/* HEADER*/}
+<header className="bg-[#7A0C0C] text-white h-20 flex items-center justify-between px-6 shadow-lg relative z-50">
+  
+  {/*Profil */}
+  <Link 
+    to="/student-profile" 
+    className="flex items-center gap-3 no-underline"
+    style={{ 
+      textDecoration: 'none',
+      color: 'inherit',
+      cursor: 'pointer'
+    }}
+  >
+    <div 
+      className="w-16 h-16 rounded-full bg-gradient-to-br from-[#a71930] to-[#8b1428] flex items-center justify-center text-white text-3xl font-bold shadow-lg"
+      style={{ border: 'none' }}
+    >
+      {getInitial()}
+    </div>
+  </Link>
+
+  {/* MENU */}
+  <nav className="flex gap-8 font-medium">
+    <Link 
+      to="/beranda-student" 
+      className="hover:text-gray-200 transition-colors"
+      style={{ 
+        textDecoration: 'none',
+        color: 'inherit',
+        cursor: 'pointer'
+      }}
+    >
+      {d.navHome}
+    </Link>
+    <Link 
+      to="/artikel/student" 
+      className="hover:text-gray-200 transition-colors"
+      style={{ 
+        textDecoration: 'none',
+        color: 'inherit',
+        cursor: 'pointer'
+      }}
+    >
+      {d.navArticles}
+    </Link>
+    <Link 
+      to="/forum" 
+      className="hover:text-gray-200 transition-colors"
+      style={{ 
+        textDecoration: 'none',
+        color: 'inherit',
+        cursor: 'pointer'
+      }}
+    >
+      {d.navForum}
+    </Link>
+    <div className="text-yellow-300 underline font-semibold">
+      {d.navReservation}
+    </div>
+  </nav>
+
+  {/* RIGHT */}
+  <div className="flex items-center gap-4">
+    <button
+      onClick={handleLogout}
+      className="bg-white text-[#7A0C0C] px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-lg cursor-pointer"
+    >
+      {d.logout}
+    </button>
+  </div>
+</header>
 
       {/* CONTENT */}
       <section className="relative z-10 flex items-center justify-center px-4 py-10">
@@ -501,7 +743,7 @@ export default function StudentAppointment() {
               onClick={handleRefresh}
               className="text-sm text-blue-600 hover:text-blue-800 underline"
             >
-              {lang === "id" ? "Refresh" : "Refresh"}
+              Refresh
             </button>
           </div>
 
@@ -554,9 +796,7 @@ export default function StudentAppointment() {
                     <p><strong>{d.labelDate}:</strong> {new Date(activeReservation.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     <p><strong>{d.labelTime}:</strong> {activeReservation.time}</p>
                     <p className="text-sm text-gray-500 mt-2">
-                      {lang === "id" 
-                        ? "Dokter: " + (activeReservation.doctor?.name || "Belum ditentukan")
-                        : "Doctor: " + (activeReservation.doctor?.name || "Not assigned")}
+                      Dokter: {activeReservation.doctor?.name || "Belum ditentukan"}
                     </p>
                   </div>
 
@@ -641,7 +881,7 @@ export default function StudentAppointment() {
                     }}
                     className="mt-2 text-blue-600 hover:text-blue-800 underline"
                   >
-                    {lang === "id" ? "Buat reservasi baru" : "Create new reservation"}
+                    Buat reservasi baru
                   </button>
                 </div>
               )}
@@ -650,6 +890,7 @@ export default function StudentAppointment() {
         </div>
       </section>
 
+      {/* CSS Styles */}
       <style jsx>{`
         .countdown {
           background: #f8f9fa;

@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { listPosts, createPost } from "../../api/forum";
+import { listPosts, deletePost } from "../../api/forum";
 import { LOCAL_STORAGE_KEYS, ROUTES } from "../../utils/constants";
 import axios from "axios";
 import { API_BASE_URL } from "../../utils/constants";
-import { jwtDecode } from "jwt-decode";
 
 function timeAgo(dateStr) {
   if (!dateStr) return "";
@@ -55,55 +54,27 @@ const ProfileInitial = ({ name, size = 8 }) => {
   );
 };
 
-export default function StudentForum() {
+export default function DoctorForum() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [content, setContent] = useState("");
-  const [creating, setCreating] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [studentData, setStudentData] = useState(null);
+  const [doctorData, setDoctorData] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN);
     const userType = localStorage.getItem(LOCAL_STORAGE_KEYS.USER_TYPE);
 
-    if (!token || userType !== "student") {
+    if (!token || userType !== "doctor") {
       navigate(ROUTES.LOGIN);
     } else {
-      const fetchStudentData = async () => {
-        try {
-          const response = await axios.get(`${API_BASE_URL}/api/student/profile`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (response.data.success) {
-            setStudentData(response.data.data);
-          } else {
-            const savedName = localStorage.getItem("studentName");
-            if (savedName) {
-              setStudentData({ name: savedName });
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching student data:", error);
-          // Fallback ke data dari localStorage
-          const savedName = localStorage.getItem("studentName");
-          if (savedName) {
-            setStudentData({ name: savedName });
-          }
-        } finally {
-          setAuthLoading(false);
-        }
-      };
-
-      fetchStudentData();
+      setAuthLoading(false);
+      const savedName = localStorage.getItem("doctorName");
+      if (savedName) {
+        setDoctorData({ name: savedName });
+      }
     }
   }, [navigate]);
 
@@ -127,67 +98,45 @@ export default function StudentForum() {
     }
   }, [authLoading]);
 
-  const handleCreate = async () => {
-    if (!content.trim()) {
-      alert("Konten postingan tidak boleh kosong.");
-      return;
-    }
-
-    setCreating(true);
-
-    const defaultTitle = content.trim().substring(0, 20) +
-      (content.trim().length > 20 ? "..." : "") +
-      " - " + new Date().toLocaleDateString('id-ID');
-
-    const res = await createPost(defaultTitle, content.trim());
-
-    if (res && res.success) {
-      setShowModal(false);
-      setContent("");
-      await load();
-    } else {
-      alert(res?.message || "Gagal membuat postingan.");
-    }
-
-    setCreating(false);
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm("Hapus postingan ini?")) return;
+    const res = await deletePost(postId);
+    if (res && res.success) load();
+    else alert(res?.message || "Gagal menghapus postingan");
   };
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("token");
     localStorage.removeItem("userType");
-    localStorage.removeItem("activeReservation");
-    localStorage.removeItem("lastShownCancellationId");
-    localStorage.removeItem("studentName");
+    localStorage.removeItem("doctorName");
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.USER_TYPE);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.USER_DATA);
 
     navigate("/login");
   };
 
   const getInitial = () => {
-    const name =
-      studentData?.name ||
-      studentData?.fullName ||
-      (localStorage.getItem("studentName") || "").trim() ||
-      (() => {
-        try {
-          const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN) || localStorage.getItem("authToken") || localStorage.getItem("token");
-          if (!token) return "";
-          const decoded = jwtDecode(token);
-          return decoded?.name || decoded?.fullName || decoded?.username || "";
-        } catch {
-          return "";
-        }
-      })();
-    if (name) return name.charAt(0).toUpperCase();
-    return "K";
+    if (doctorData?.name) {
+      return doctorData.name.charAt(0).toUpperCase();
+    }
+    const savedName = localStorage.getItem("doctorName");
+    if (savedName && savedName.trim().length > 0) {
+      return savedName.trim().charAt(0).toUpperCase();
+    }
+    return "D";
   };
 
   const getDisplayName = () => {
-    if (studentData?.name) return studentData.name;
-    if (studentData?.fullName) return studentData.fullName;
-    const savedName = (localStorage.getItem("studentName") || "").trim();
-    if (savedName) return savedName;
-    return "";
+    if (doctorData?.name) {
+      return `Dr. ${doctorData.name}`;
+    }
+    const savedName = localStorage.getItem("doctorName");
+    if (savedName) {
+      return `Dr. ${savedName}`;
+    }
+    return "Dokter";
   };
 
   if (authLoading) {
@@ -216,7 +165,7 @@ export default function StudentForum() {
         {/*  HEADER  */}
         <header className="bg-[#7A0C0C] text-white h-20 flex items-center justify-between px-6 shadow-lg">
           {/* LEFT */}
-          <Link to="/student-profile" className="flex items-center gap-3 no-underline">
+          <Link to="/doctor-profile" className="flex items-center gap-3 no-underline">
             <div
               className="w-16 h-16 rounded-full bg-gradient-to-br from-[#a71930] to-[#8b1428] flex items-center justify-center text-white text-3xl font-bold shadow-lg hover:opacity-90 transition-opacity"
               style={{ border: 'none' }}
@@ -227,16 +176,16 @@ export default function StudentForum() {
 
           {/* MENU */}
           <nav className="flex gap-8 font-medium">
-            <Link to="/beranda-student" className="hover:text-gray-200">
+            <Link to="/beranda-doctor" className="hover:text-gray-200">
               Beranda
             </Link>
-            <Link to="/artikel/student" className="hover:text-gray-200">
+            <Link to={ROUTES.DOCTOR_ARTIKEL} className="hover:text-gray-200">
               Artikel Kesehatan
             </Link>
-            <Link to="/forum" className="text-yellow-300 underline font-semibold">
+            <Link to="/doctor/forum" className="text-yellow-300 underline font-semibold">
               Forum Diskusi
             </Link>
-            <Link to="/student-appointments" className="hover:text-gray-200">
+            <Link to={ROUTES.DOCTOR_APPOINTMENTS} className="hover:text-gray-200">
               Reservasi
             </Link>
           </nav>
@@ -276,15 +225,29 @@ export default function StudentForum() {
                   <div
                     key={p.id}
                     className="border border-red-200 rounded-xl shadow-sm p-4 cursor-pointer hover:shadow-md bg-white"
-                    onClick={() => navigate(`/forum/${p.id}`)}
+                    onClick={() => navigate(`/doctor/forum/${p.id}`)}
                   >
-                    <div className="flex items-center mb-2">
-                      {/* Ganti gambar dengan inisial profil */}
-                      <div className="mr-3">
-                        <ProfileInitial name={p.author?.fullName || p.author?.name || p.author?.username} size={8} />
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        {/* inisial profil */}
+                        <div className="mr-3">
+                          <ProfileInitial name={p.author?.name} size={8} />
+                        </div>
+                        <div className="font-semibold">{p.author?.name || "Pengguna"}</div>
                       </div>
-                      <div className="font-semibold">{p.author?.fullName || p.author?.name || p.author?.username || "Pengguna"}</div>
+
+                      {/* Delete post button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePost(p.id);
+                        }}
+                        className="text-red-600 hover:text-red-800 text-sm font-semibold"
+                      >
+                        Hapus
+                      </button>
                     </div>
+
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>{timeAgo(p.created_at)}</span>
                       <span>{p.comments?.length || 0} Komentar</span>
@@ -294,58 +257,8 @@ export default function StudentForum() {
                 ))}
               </div>
             </div>
-            {/* Tombol buat posting */}
-            <div className="flex justify-center mt-6">
-              <button
-                type="button"
-                onClick={() => setShowModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl shadow flex items-center"
-              >
-                <span className="mr-2 text-xl">＋</span>
-                Buat Postingan
-              </button>
-            </div>
           </div>
         </div>
-
-        {/* Modal buat post */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50">
-            <div className="bg-white w-full sm:w-[32rem] p-6 rounded-t-2xl sm:rounded-2xl">
-              <div className="text-lg font-semibold mb-4">Buat Postingan Baru</div>
-
-              <textarea
-                className="w-full border rounded-lg p-3 h-40 mb-4 text-base"
-                placeholder="Apa yang ingin Anda bagikan?"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                autoFocus
-              />
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-lg border hover:bg-gray-50"
-                  onClick={() => {
-                    setShowModal(false);
-                    setContent("");
-                  }}
-                >
-                  Batal
-                </button>
-
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                  onClick={handleCreate}
-                  disabled={creating || !content.trim()}
-                >
-                  {creating ? "Mengunggah..." : "Unggah"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/*  MODAL KONFIRMASI LOGOUT  */}
         {showLogoutConfirm && (

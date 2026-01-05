@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { fetchAPI } from "../../api/client";
 import { LOCAL_STORAGE_KEYS, API_ENDPOINTS } from "../../utils/constants";
 
@@ -6,6 +7,7 @@ export default function StudentAppointmentStatus() {
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [countdown, setCountdown] = useState("");
   const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN);
+  const navigate = useNavigate();
   
   // Fetch active appointment
   const fetchActiveAppointment = async () => {
@@ -177,17 +179,28 @@ export default function StudentAppointmentStatus() {
         </div>
       )}
       
-      {/* Pesan untuk completed/cancelled */}
-      {(activeAppointment.status === "COMPLETED" || activeAppointment.status === "CANCELLED") && (
+      {/* Pesan untuk COMPLETED */}
+      {activeAppointment.status === "COMPLETED" && (
         <div className="mt-6 p-4 bg-gray-50 rounded-xl text-center">
-          <p className="text-gray-700 mb-2">
-            Appointment ini sudah {activeAppointment.status === "COMPLETED" ? "selesai" : "dibatalkan"}.
-          </p>
+          <p className="text-gray-700 mb-2">Appointment ini sudah selesai.</p>
           <button
             onClick={handleRefresh}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Cek Status Terbaru
+          </button>
+        </div>
+      )}
+
+      {/* Pesan untuk CANCELLED dengan tombol OK kembali ke form reservasi */}
+      {activeAppointment.status === "CANCELLED" && (
+        <div className="mt-6 p-4 bg-gray-50 rounded-xl text-center">
+          <p className="text-gray-700 mb-4">Reservasi telah dibatalkan</p>
+          <button
+            onClick={() => navigate("/student-appointments")}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            OK
           </button>
         </div>
       )}
