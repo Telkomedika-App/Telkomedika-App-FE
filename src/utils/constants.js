@@ -1,4 +1,4 @@
-export const API_BASE_URL = "http://localhost:3000/api";
+export const API_BASE_URL = "https://telkomedika-app-be-production.up.railway.app/api";
 export const API_TIMEOUT = 5000;
 
 export const USER_ROLES = {
