@@ -231,11 +231,6 @@ export default function DoctorForumDetail() {
             >
               {getInitial()}
             </div>
-            {displayName && (
-              <span className="text-white font-medium text-lg">
-                {displayName}
-              </span>
-            )}
           </Link>
 
           {/* MENU */}
