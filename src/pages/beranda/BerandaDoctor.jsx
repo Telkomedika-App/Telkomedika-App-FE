@@ -68,7 +68,7 @@ export default function BerandaDoctor() {
     return (
       <div
         className="relative min-h-screen bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url("/Background.png")' }}
+        style={{ backgroundImage: 'url("/background.png")' }}
       >
         <div className="absolute inset-0 bg-black/55"></div>
         <div className="relative z-10 flex items-center justify-center min-h-screen">
@@ -84,7 +84,7 @@ export default function BerandaDoctor() {
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: 'url("/Background.png")' }}
+      style={{ backgroundImage: 'url("/background.png")' }}
     >
       {/* OVERLAY */}
       <div className="absolute inset-0 bg-black/55"></div>
